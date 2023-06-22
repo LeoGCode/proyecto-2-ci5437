@@ -38,6 +38,7 @@ hash_table_t TTable[2];
 // int maxmin(state_t state, int depth, bool use_tt);
 // int minmax(state_t state, int depth, bool use_tt = false);
 // int maxmin(state_t state, int depth, bool use_tt = false);
+
 int negamax(state_t state, int depth, int color, bool use_tt = false);
 int negamax(state_t state, int depth, int alpha, int beta, int color,
             bool use_tt = false);
@@ -45,6 +46,14 @@ int scout(state_t state, int depth, int color, bool use_tt = false);
 int negascout(state_t state, int depth, int alpha, int beta, int color,
               bool use_tt = false);
 
+/**
+ * Negamax algorithm
+ * @param state current state
+ * @param depth current depth
+ * @param color current player, 1 for MAX, -1 for MIN
+ * @param use_tt use transposition table
+ * @return value of the state
+ */
 int negamax(state_t state, int depth, int color, bool use_tt) {
   // cout << "depth: " << depth << endl;
   // cout << state << endl;
@@ -57,7 +66,10 @@ int negamax(state_t state, int depth, int color, bool use_tt) {
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
       ++generated;
-      alpha = max(alpha, -negamax(state.move(color_b, pos), depth - 1, -color));
+      auto tmp = -negamax(state.move(color_b, pos), depth - 1, -color);
+      alpha = max(alpha, tmp);
+      // cout << "depth: " << depth << endl;
+      // cout << state << endl;
       no_moves = false;
     }
   }
@@ -68,8 +80,20 @@ int negamax(state_t state, int depth, int color, bool use_tt) {
   return alpha;
 }
 
+/**
+ * Negamax algorithm with alpha-beta pruning
+ * @param state current state
+ * @param depth current depth
+ * @param color current player, 1 for MAX, -1 for MIN
+ * @param alpha alpha value
+ * @param beta beta value
+ * @param use_tt use transposition table
+ * @return value of the state
+ */
 int negamax(state_t state, int depth, int alpha, int beta, int color,
             bool use_tt) {
+  // cout << "depth: " << depth << endl;
+  // cout << state << endl;
   ++expanded;
   if (depth == 0 || state.terminal()) return color * state.value();
 
@@ -81,6 +105,8 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
       ++generated;
       value = max(value, -negamax(state.move(color_b, pos), depth - 1, -beta,
                                   -alpha, -color));
+      // cout << "depth: " << depth << endl;
+      // cout << state << endl;
       alpha = max(alpha, value);
       no_moves = false;
       if (alpha >= beta) break;
@@ -94,6 +120,16 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
   return value;
 }
 
+/**
+ * Test function for scout algorithm
+ * @param state current state
+ * @param depth current depth
+ * @param score current score
+ * @param condition condition to test, can be ">" or ">="
+ * @param color current player, 1 for MAX, -1 for MIN
+ * @return true if the condition is true, false otherwise
+ * @see scout
+ */
 bool TEST(state_t state, unsigned depth, int score, string condition,
           int color) {
   if (depth == 0 || state.terminal()) {
@@ -108,24 +144,33 @@ bool TEST(state_t state, unsigned depth, int score, string condition,
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
       no_moves = false;
-      if (is_MAX &&
-          TEST(state.move(color_b, pos), depth - 1, score, condition, color))
+      state_t child = state.move(color_b, pos);
+      if (is_MAX && TEST(child, depth - 1, score, condition, -color))
         return true;
-      else if (!is_MAX && TEST(state.move(color_b, pos), depth - 1, score,
-                               condition, color))
+      else if (!is_MAX && !TEST(child, depth - 1, score, condition, -color))
         return false;
     }
   }
   if (no_moves) {
-    if (is_MAX && TEST(state, depth - 1, score, condition, color))
+    if (is_MAX && TEST(state, depth, score, condition, -color))
       return true;
-    else if (!is_MAX && TEST(state, depth - 1, score, condition, color))
+    else if (!is_MAX && !TEST(state, depth, score, condition, -color))
       return false;
   }
   return !is_MAX;
 }
 
+/**
+ * Scout algorithm
+ * @param state current state
+ * @param depth current depth
+ * @param color current player, 1 for MAX, -1 for MIN
+ * @param use_tt use transposition table
+ * @return value of the state
+ */
 int scout(state_t state, int depth, int color, bool use_tt) {
+  // cout << "depth: " << depth << endl;
+  // cout << state << endl;
   ++expanded;
   if (depth == 0 || state.terminal()) return state.value();
 
@@ -141,9 +186,9 @@ int scout(state_t state, int depth, int color, bool use_tt) {
         score = scout(child, depth - 1, -color);
         is_first_child = false;
       } else {
-        if (color == 1 && TEST(child, depth, score, ">", color))
+        if (color == 1 && TEST(child, depth, score, ">", -color))
           score = scout(child, depth - 1, -color);
-        if (color == -1 && !TEST(child, depth, score, ">=", color))
+        if (color == -1 && !TEST(child, depth, score, ">=", -color))
           score = scout(child, depth - 1, -color);
       }
       no_moves = false;
@@ -151,44 +196,68 @@ int scout(state_t state, int depth, int color, bool use_tt) {
   }
   if (no_moves) {
     ++generated;
-    score = scout(state, depth - 1, -color);
+    score = scout(state, depth, -color);
   }
   return score;
 }
 
+/**
+ * Negascout algorithm
+ * @param state current state
+ * @param depth current depth
+ * @param alpha alpha value
+ * @param beta beta value
+ * @param color current player, 1 for MAX, -1 for MIN
+ * @param use_tt use transposition table
+ * @return value of the state
+ */
 int negascout(state_t state, int depth, int alpha, int beta, int color,
               bool use_tt) {
   // cout << state << endl;
   ++expanded;
   if (depth == 0 || state.terminal()) return color * state.value();
 
-  int value = -numeric_limits<int>::max();
+  int score = -numeric_limits<int>::max();
   bool color_b = (color == 1);
   bool no_moves = true;
+  bool is_first_child = true;
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
       state_t child = state.move(color_b, pos);
       ++generated;
-      if (pos == 0)
-        value = -negascout(child, depth - 1, -beta, -alpha, -color);
-      else {
-        value = -negascout(child, depth - 1, -alpha - 1, -alpha, -color);
-        if (alpha < value && value < beta)
-          value = -negascout(child, depth - 1, -beta, -value, -color);
-      }
-      alpha = max(alpha, value);
       no_moves = false;
+      if (is_first_child) {
+        score = -negascout(child, depth - 1, -beta, -alpha, -color);
+        is_first_child = false;
+      } else {
+        score = -negascout(child, depth - 1, -alpha - 1, -alpha, -color);
+        if (alpha < score && score < beta)
+          score = -negascout(child, depth - 1, -beta, -score, -color);
+      }
+      alpha = max(alpha, score);
       if (alpha >= beta) break;
     }
   }
   if (no_moves) {
     ++generated;
-    value = -negascout(state, depth - 1, -beta, -alpha, -color);
-    alpha = max(alpha, value);
+    score = -negascout(state, depth - 1, -beta, -alpha, -color);
+    alpha = max(alpha, score);
   }
-  return value;
+  return alpha;
 }
 
+/**
+ * @brief Main function.
+ *
+ * @param argc Number of arguments
+ * @param argv Arguments
+ * @return int
+ *
+ * @details
+ * The main function receives the following arguments:
+ * - argv[1]: algorithm to use (0: negamax, 1: negamax with alpha-beta pruning,
+ * 2: scout, 3: negascout)
+ */
 int main(int argc, const char **argv) {
   state_t pv[128];
   int npv = 0;
@@ -270,7 +339,7 @@ int main(int argc, const char **argv) {
 
     cout << npv + 1 - i << ". " << (color == 1 ? "Black" : "White")
          << " moves: "
-         << "value=" << value << ", #expanded=" << expanded
+         << "value=" << color * value << ", #expanded=" << expanded
          << ", #generated=" << generated << ", seconds=" << elapsed_time
          << ", #generated/second=" << generated / elapsed_time << endl;
   }
