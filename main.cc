@@ -57,7 +57,7 @@ int negascout(state_t state, int depth, int alpha, int beta, int color,
 int negamax(state_t state, int depth, int color, bool use_tt) {
   // cout << "depth: " << depth << endl;
   // cout << state << endl;
-  ++expanded;
+  ++generated;
   if (depth == 0 || state.terminal()) return color * state.value();
 
   int alpha = -numeric_limits<int>::max();
@@ -65,7 +65,6 @@ int negamax(state_t state, int depth, int color, bool use_tt) {
   bool no_moves = true;
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
-      ++generated;
       auto tmp = -negamax(state.move(color_b, pos), depth - 1, -color);
       alpha = max(alpha, tmp);
       // cout << "depth: " << depth << endl;
@@ -77,6 +76,7 @@ int negamax(state_t state, int depth, int color, bool use_tt) {
     ++generated;
     alpha = max(alpha, -negamax(state, depth - 1, -color));
   }
+  ++expanded;
   return alpha;
 }
 
@@ -94,7 +94,7 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
             bool use_tt) {
   // cout << "depth: " << depth << endl;
   // cout << state << endl;
-  ++expanded;
+  ++generated;
   if (depth == 0 || state.terminal()) return color * state.value();
 
   int value = -numeric_limits<int>::max();
@@ -102,7 +102,6 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
   bool no_moves = true;
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
-      ++generated;
       value = max(value, -negamax(state.move(color_b, pos), depth - 1, -beta,
                                   -alpha, -color));
       // cout << "depth: " << depth << endl;
@@ -117,6 +116,7 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
     value = max(value, -negamax(state, depth - 1, -beta, -alpha, -color));
     alpha = max(alpha, value);
   }
+  ++expanded;
   return value;
 }
 
@@ -132,12 +132,15 @@ int negamax(state_t state, int depth, int alpha, int beta, int color,
  */
 bool TEST(state_t state, unsigned depth, int score, string condition,
           int color) {
+  ++generated;
   if (depth == 0 || state.terminal()) {
     if (condition == ">")
       return state.value() > score;
     else if (condition == ">=")
       return state.value() >= score;
   }
+
+  ++expanded;
   bool is_MAX = (color == 1);
   bool color_b = (color == 1);
   bool no_moves = true;
@@ -171,7 +174,7 @@ bool TEST(state_t state, unsigned depth, int score, string condition,
 int scout(state_t state, int depth, int color, bool use_tt) {
   // cout << "depth: " << depth << endl;
   // cout << state << endl;
-  ++expanded;
+  ++generated;
   if (depth == 0 || state.terminal()) return state.value();
 
   int score = 0;
@@ -181,7 +184,6 @@ int scout(state_t state, int depth, int color, bool use_tt) {
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
       state_t child = state.move(color_b, pos);
-      ++generated;
       if (is_first_child) {
         score = scout(child, depth - 1, -color);
         is_first_child = false;
@@ -198,6 +200,7 @@ int scout(state_t state, int depth, int color, bool use_tt) {
     ++generated;
     score = scout(state, depth, -color);
   }
+  ++expanded;
   return score;
 }
 
@@ -214,7 +217,7 @@ int scout(state_t state, int depth, int color, bool use_tt) {
 int negascout(state_t state, int depth, int alpha, int beta, int color,
               bool use_tt) {
   // cout << state << endl;
-  ++expanded;
+  ++generated;
   if (depth == 0 || state.terminal()) return color * state.value();
 
   int score = -numeric_limits<int>::max();
@@ -224,7 +227,6 @@ int negascout(state_t state, int depth, int alpha, int beta, int color,
   for (int pos = 0; pos < DIM; ++pos) {
     if (state.outflank(color_b, pos)) {
       state_t child = state.move(color_b, pos);
-      ++generated;
       no_moves = false;
       if (is_first_child) {
         score = -negascout(child, depth - 1, -beta, -alpha, -color);
@@ -243,6 +245,7 @@ int negascout(state_t state, int depth, int alpha, int beta, int color,
     score = -negascout(state, depth - 1, -beta, -alpha, -color);
     alpha = max(alpha, score);
   }
+  ++expanded;
   return alpha;
 }
 
